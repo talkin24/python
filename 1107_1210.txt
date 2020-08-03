@@ -1,0 +1,491 @@
+/*
+cmvardef1107-1210_1.do by ejchoi
+
+first created: 8/03/20 by hbkim
+last updated: 
+
+- Define variables for CPS 1107 matched with subsequent waves
+- ?Calls $code/indgp.do & $code/occgp.do
+*/
+
+version 15.1
+
+cap log close
+clear all
+macro drop _all
+set more off
+
+cd "C:\Users\cresc\Hanbin Dropbox\김한빈\IJS"
+
+global code CPS/code
+global data CPS/data
+global mdata CPS_match/mdta
+global xdata CPS_crosswalk/dta
+
+
+log using $code/cmvardef1107-1210_1.log, replace
+
+use $data/spem03, clear
+keep mis hhid hhnum lineno spem
+tempfile spem
+save `spem', replace
+
+use CPS/mdta/mcps1107-1210, clear
+/*
+gen x=real(hhid)
+drop hhid
+rename x hhid
+*/
+
+merge 1:1 mis hhid hhnum lineno using `spem', gen(merge_spem)
+
+/*
+gen badmat = (badmat1==1 | badmat2==1 | badmat3==1 | badmat4==1 | badmat5==1 | ///
+	badmat6==1 | badmat7==1 | badmat8==1 | badmat9==1 | badmat10==1)
+replace badmat=. if mat==0
+tab badmat
+*/
+gen mat = (match1==1 | match2==1 | match3==1 | match4==1 | match5==1 | ///
+	match6==1 | match7==1 | match8==1 | match9==1 | match10==1)
+tab mat
+
+gen year0 = 2003
+gen month0 = 10
+
+gen wgt0 = pwsswgt/10000 //pwsswgt: FINAL WEIGHT 613 - 622
+gen blswgt = pwcmpwgt/10000 //pwcmpwgt: Composited Final Weight Used to create BLS's published labor force statistics 846 - 855
+
+**drop if mat==0 | badmat==1
+drop if age0<16
+keep if ptyp0==2 //prpertyp: TYPE OF PERSON RECORD RECODE 161 - 162 
+	//1 Child Household Member, 2 Adult Civilian Household Member, 3 Adult Armed Forces Household Member
+	
+	
+*** DEMOGRAPHIC CHARACTERISTICS
+gen educ0 = peeduca //HIGHEST LEVEL OF SCHOOL COMPLETED OR DEGREE RECEIVED 137 - 138
+	/*
+	31 = Less Than 1st Grade
+	32 = 1st, 2nd, 3rd Or 4th Grade
+	33 = 5th Or 6th Grade
+	34 = 7th Or 8th Grade
+	35 = 9th Grade
+	36 = 10th Grade
+	37 = 11th Grade
+	38 = 12th Grade No Diploma
+	39 = High School Grad-Diploma Or Equiv (GED)
+	40 = Some College But No Degree
+	41 = Associate Degree-Occupational/Vocational
+	42 = Associate Degree-Academic Program
+	43 = Bachelor's Degree (Ex: BA, AB, BS)
+	44 = Master's Degree (Ex: MA, MS, MENG, MED, MSW)
+	45 = Professional School Deg (Ex: MD, DDS, DVM)
+	46 = Doctorate Degree (Ex: PHD, EDD)
+	*/
+gen primscul = (educ0>=31 & educ0<=34) if educ0>0 & ~mi(educ0)
+gen nohiscul = (educ0>=35 & educ0<=38) if educ0>0 & ~mi(educ0)
+gen hiscul   = (educ0==39)             if educ0>0 & ~mi(educ0)
+gen nocolege = (educ0==40)             if educ0>0 & ~mi(educ0)
+gen asdegree = (educ0==41 | educ0==42) if educ0>0 & ~mi(educ0)
+gen undegree = (educ0>=43)             if educ0>0 & ~mi(educ0)
+
+gen male = 2 - sex0 if inlist(sex0,1,2) //pesex: SEX 129 - 130
+
+gen mari0 = prmarsta //MARITAL STATUS BASED ON ARMED FORCES PARTICIPATION 159 - 160
+	/*
+	1 = Married, Civilian Spouse Present
+	2 = Married, Armed Forces Spouse Present
+	3 = Married, Spouse Absent (Exc. Separated)
+	4 = Widowed
+	5 = Divorced
+	6 = Separated
+	7 = Never Married
+	*/
+/*label var mari0 "marital status"*/
+gen married = inlist(mari0,1,2,3) if mari0>0 & ~mi(mari0) 
+gen maridman = male*married if ~mi(male) & ~mi(married)
+
+gen black = (race0==2) if ~mi(race0) //prdtrace: RACE 139 - 140 1 White only 2 Black only ... up to 21 4 or 5 Races
+gen white = (race0==1) if ~mi(race0)
+
+gen hisp0 = pehspnon //HISPANIC OR NON-HISPANIC 157 - 158
+gen hispanic = 2 - hisp0 if inlist(hisp0,1,2)
+
+gen age1625 = age0>15 & age0<26 if ~mi(age0) //peage: PERSONS AGE AS OF THE END OF SURVEY WEEK 122 - 123
+gen age2635 = age0>25 & age0<36 if ~mi(age0)
+gen age3645 = age0>35 & age0<46 if ~mi(age0)
+gen age4655 = age0>45 & age0<56 if ~mi(age0)
+gen age56pl = age0>55 		    if ~mi(age0)
+
+gen hown0 = hetenure //ARE YOUR LIVING QUARTERS... 29 - 30
+	/*
+	1 = Owned Or Being Bought By A HH Member
+	2 = Rented For Cash
+	3 = Occupied Without Payment Of Cash Rent
+	*/
+gen homeownr = (hown0==1) if inlist(hown,1,2,3)
+
+gen imig0 = prcitshp //CITIZENSHIP STATUS 172 - 173
+	/*
+	1 = Native, Born In The United States
+	2 = Native, Born In Puerto Rico Or U.S. Outlying Area
+	3 = Native, Born Abroad Of American Parent Or Parents
+	4 = Foreign Born, U.S. Citizen By Naturalization
+	5 = Foreign Born, Not A Citizen Of The United States
+	*/
+gen imigrant = inlist(imig0,4,5) if imig0>0 & ~mi(imig0)
+
+
+*** LABOR MARKET STATUS
+gen layoff = (lf0==3) if lf0>0 & ~mi(lf0) //pemlr: MONTHLY LABOR FORCE RECODE 180 - 181
+	/*
+	1 = Employed-At Work
+	2 = Employed-Absent
+	3 = Unemployed-On Layoff
+	4 = Unemployed-Looking
+	5 = Not In Labor Force-Retired
+	6 = Not In Labor Force-Disabled
+	7 = Not In Labor Force-Other
+	*/
+gen onlayoff = i1.pulay==1 //LAST WEEK, WERE YOU ON LAYOFF FROM A JOB? 208 - 209
+	//1 Yes 2 No 3 Retired 4 Disabled 5 Unable to work
+
+recode lf* (-1 = .) (2 = 1) (3 4 = 2) (5/7 = 3)
+label define lf 1 "employed" 2 "umemployed" 3 "NILF"
+forv i = 0/10 {
+	label values lf`i' lf 
+}
+
+gen untyp0 = pruntype //REASON FOR UNEMPLOYMENT 412 - 413
+	/*
+	1 = Job Loser/On Layoff
+	2 = Other Job Loser
+	3 = Temporary Job Ended
+	4 = Job Leaver
+	5 = Re-Entrant
+	6 = New-Entrant
+	*/
+
+gen pact0 = pelkll1o //BEFORE YOU STARTED LOOKING FOR WORK, WHAT WERE YOU DOING 336 - 337
+	/*
+	-1
+	1 = Working
+	2 = School
+	3 = Left Military Service
+	4 = Something Else
+	*/
+gen preuwork = inlist(pact0,1,3) if ~mi(pact0)
+gen preuscul = i2.pact0
+
+gen rlev0 = pelkll2o //DID YOU LOSE OR QUIT THAT JOB, OR WAS IT A TEMPORARY JOB THAT ENDED? 338 - 339
+	/*
+	-1
+	1 = Lost Job
+	2 = Quit Job
+	3 = Temporary Job Ended
+	*/
+gen lostjob = i1.rlev0
+gen quitjob = i2.rlev0
+gen tempjob = i3.rlev0
+
+qui gen lalk0 = .
+qui gen laof0 = .
+
+gen re6m0 = pulay6m //HAVE YOU BEEN GIVEN ANY INDICATION THAT YOU WILL BE RECALLED TO WORK WITHIN THE NEXT 6 MONTHS? 275 - 276
+gen reda0 = pulaydt //HAS YOUR EMPLOYER GIVEN YOU A DATE TO RETURN TO WORK? 273 - 274
+gen pulk0 = pulk //HAVE YOU BEEN DOING ANYTHING TO FIND WORK DURING THE LAST 4 WEEKS? 294 - 295
+	//1 Yes 2 No 3 Retired 4 Disabled 5 Unable to work
+
+gen want0 = peret1 //DO YOU CURRENTLY WANT A JOB, EITHER FULL OR PART-TIME? 200 - 201 
+	//1 Yes 2 No 3 Has A Job
+	/*
+	pedwwnto: DO YOU CURRENTLY WANT A JOB, EITHER FULL OR PART TIME? 347 - 348
+	1 Yes, Or Maybe, It Depends 2 No 3 Retired 4 Disabled 5 Unable
+	*/
+	
+gen wnse0 = pedwrsn //WHAT IS THE MAIN REASON YOU WERE NOT LOOKING FOR WORK DURING THE LAST 4 WEEKS? 349 - 350
+	/*
+	1 = Believes No Work Available In Area Of Expertise
+	2 = Couldn't Find Any Work
+	3 = Lacks Necessary Schooling/training
+	4 = Employers Think Too Young Or Too Old
+	5 = Other Types Of Discrimination
+	6 = Can't Arrange Child Care
+	7 = Family Responsibilities
+	8 = In School Or Other Training
+	9 = Ill-health, Physical Disability
+	10 = Transportation Problems
+	11 = Other - Specify
+	*/
+gen lk120 = pedwlko //DID YOU LOOK FOR WORK AT ANY TIME IN THE LAST 12 MONTHS 351 - 352
+gen wk120 = pedwwk //DID YOU ACTUALLY WORK AT A JOB OR BUSINESS DURING THE LAST 12 MONTHS? 353 - 354
+qui gen lk40 = .
+gen lkle0 = pedwlkwk //SINCE YOU LEFT THAT JOB OR BUSINESS HAVE YOU LOOKED FOR WORK? 357 - 358
+gen aval0 = pelkavl //LAST WEEK, COULD YOU HAVE STARTED A JOB IF ONE HAD BEEN OFFERED? 332 - 333 
+	/*
+	pedwavl: LAST WEEK, COULD YOU HAVE STARTED A JOB IF ONE HAD BEEN OFFERED? 359 - 360
+	1 Yes 2 No
+	*/ 
+
+gen ftpt0 = prwkstat //FULL/PART-TIME WORK STATUS 416 - 417 /*kuhn uses prwkstat, prftlf also fine*/
+	/*
+	1 = Not In Labor Force
+	2 = FT Hours (35+), Usually FT
+	3 = PT For Economic Reasons, Usually FT
+	4 = PT For Non-Economic Reasons, Usually FT
+	5 = Not At Work, Usually FT
+	6 = PT Hrs, Usually PT For Economic Reasons
+	7 = PT Hrs, Usually PT For Non-Economic Reasons
+	8 = FT Hours, Usually PT For Economic Reasons
+	9 = FT Hours, Usually PT For Non-Economic
+	10 = Not At Work, Usually Part-Time
+	11 = Unemployed FT
+	12 = Unemployed PT
+	*/
+gen ft = inlist(ftpt0,2,3,4,5,11) if ~mi(ftpt0)
+	/*
+	prftlf: FULL TIME LABOR FORCE 397 - 398
+	1 Full Time Labor Force 2 Part Time Labor Force
+	*/
+
+gen cowm0 = peio1cow //INDIVIDUAL CLASS OF WORKER CODE ON FIRST JOB 432 - 433
+	/*
+	1 = Government - Federal
+	2 = Government - State
+	3 = Government - Local
+	4 = Private, For Profit
+	5 = Private, Nonprofit
+	6 = Self-Employed, Incorporated
+	7 = Self-Employed, Unincorporated
+	8 = Without Pay
+	*/
+gen private = inlist(cowm0,4,5)   if ~mi(cowm0)
+gen public  = inlist(cowm0,1,2,3) if ~mi(cowm0)
+gen selfemp = inlist(cowm0,6,7)   if ~mi(cowm0)
+
+
+*** JOB SEARCH METHODS
+gen pulkm1 = pelkm1 //WHAT ARE ALL OF THE THINGS YOU HAVE DONE TO FIND WORK DURING THE LAST 4 WEEKS? (FIRST METHOD) 296 - 297
+	/*
+	1 = Contacted Employer Directly/Interview
+	2 = Contacted Public Employment Agency
+	3 = Contacted Private Employment Agency
+	4 = Contacted Friends Or Relatives
+	5 = Contacted School/University Empl Center
+	6 = Sent Out Resumes/Filled Out Application
+	7 = Checked Union/Professional Registers
+	8 = Placed Or Answered Ads
+	9 = Other Active
+	10 = Looked At Ads
+	11 = Attended Job Training Programs/courses
+	12 = Nothing
+	13 = Other Passive
+	*/
+foreach x in cofi copu copr cofr cosc sent chec uads otac lkad cors otpa {
+	qui gen `x'0 = 0
+}
+qui forv i = 1/6 {
+	replace cofi0=1 if pulkm`i'==1  | pulkdk`i'==1  | pulkps`i'==1
+	replace copu0=1 if pulkm`i'==2  | pulkdk`i'==2  | pulkps`i'==2
+	replace copr0=1 if pulkm`i'==3  | pulkdk`i'==3  | pulkps`i'==3
+	replace cofr0=1 if pulkm`i'==4  | pulkdk`i'==4  | pulkps`i'==4
+	replace cosc0=1 if pulkm`i'==5  | pulkdk`i'==5  | pulkps`i'==5
+	replace sent0=1 if pulkm`i'==6  | pulkdk`i'==6  | pulkps`i'==6
+	replace chec0=1 if pulkm`i'==7  | pulkdk`i'==7  | pulkps`i'==7
+	replace uads0=1 if pulkm`i'==8  | pulkdk`i'==8  | pulkps`i'==8
+	replace otac0=1 if pulkm`i'==9  | pulkdk`i'==9  | pulkps`i'==9
+	replace lkad0=1 if pulkm`i'==10 | pulkdk`i'==10 | pulkps`i'==10
+	replace cors0=1 if pulkm`i'==11 | pulkdk`i'==11 | pulkps`i'==11
+	replace otpa0=1 if pulkm`i'==13 | pulkdk`i'==13 | pulkps`i'==13
+}	
+
+/*
+foreach x in cofi copu copr cofr cosc sent chec uads otac lkad cors otpa {
+qui replace `x'0 = . if pulkm1<0 & pulkm2<0 & pulkm3<0 & pulkm4<0 & pulkm5<0 & pulkm6<0 & ///
+	pulkdk1<0 & pulkdk2<0 & pulkdk3<0 & pulkdk4<0 & pulkdk5<0 & pulkdk6<0 & ///
+	pulkps1<0 & pulkps2<0 & pulkps3<0 & pulkps4<0 & pulkps5<0 & pulkps6<0
+}
+*/
+//codebook cofi0-otpa0, c //no missing
+
+egen othm0 = rowtotal(cosc0 sent0 chec0 otac0 lkad0 cors0 otpa0)
+replace othm0 = (othm0>0) 
+egen noofmeth = rowtotal(cofi0 copu0 copr0 cofr0 cosc0 sent0 chec0 uads0 otac0)
+egen noofmethd = rowtotal(cofi0 copu0 copr0 cofr0 cosc0 sent0 chec0 uads0 otac0 lkad0 cors0 otpa0)
+egen noofmeth92 = rowtotal(cofi0 copu0 copr0 cofr0 uads0 othm0)
+
+
+*** VARIABLES FROM COMPUTER AND INTERNET SUPPLEMENT 
+*do $code/comint_1.do
+
+gen cinh0 = hesc1 //Is there a computer or laptop in this household? 957-958
+gen cost0 = .
+gen ldis0 = . 
+gen usho0 = prnet2 //Internet use at home recode 991-992 /*hesint1 hesevr*/ 
+gen seho0 = .
+gen usaw0 = prnet3 //Internet use outside the home recode 993-994 /*prnet1 pesnet*/
+gen seaw0 = .
+gen work0 = pescw2 //At work, ... connect to the Internet or use e-mail or instant messaging? 1027-1028
+gen scul0 = pesnetsc //... use the Internet at school? 1039-1040
+gen grsc0 = .
+gen otsc0 = .  
+gen libr0 = pesnetsw //... use the Internet at any other location, such as a public library? 1043-1044
+gen comm0 = . 
+gen else0 = pesnetsz //such as someone else?셲 house 1049-1050 
+gen othr0 = pesnetsx //such as an airport, hotel, etc while traveling 1045-1046
+replace othr0 = 1 if pesnetsy==1 //such as Internet caf챕/coffee shop in your area 1047-1048
+gen scus0 = .
+	
+gen anylook = i1.pesnetp //This year, ... used the Internet to search for a job? 1083-1084 /*pesnetp1-pesnetp4*/
+	
+gen csch0 = pescs //... use a computer at school? 997-998
+gen chom0 = pesch //... use a computer at home? 1001-1002
+gen cwrk0 = pescw //... use a computer (at/for) (MAIN) job? 1023-1024 
+	
+gen iacc0 = i1.hesint1 //Does anyone in this household connect to the Internet from home? 963-964
+gen toox0 = i1.hesint5a //What is the MAIN reason that you don't have the Internet at home? 973-974: 1 = Costs are too high
+
+/*
+#delimit ;
+global comint "cinh0 cost0 ldis0 usho0 seho0 usaw0
+	seaw0 work0 scul0 grsc0 otsc0 libr0 comm0 else0 othr0
+	scus0 anylook csch0 chom0 cwrk0 iacc0 toox0";
+#delimit cr
+*/
+
+
+*** OCC & IND CODE
+/*
+gen indm0 = peio1icd 
+gen occm0 = peio1ocd 
+gen occupate = prmjocc1 
+gen occu = prdtocc1 
+*/
+gen ind02m0 = peio1icd /*main*/   //INDUSTRY CODE FOR PRIMARY JOB 856 - 859        
+gen ind02d0 = prdtind1 /*detail*/ //DETAILED INDUSTRY RECODE - JOB 1 472 - 473 
+gen ind02c0 = prmjind1 /*coarse*/ //MAJOR INDUSTRY RECODE - JOB 1 482 - 483 
+gen occ02m0 = peio1ocd /*main*/   //OCCUPATION CODE FOR PRIMARY JOB 860 - 863
+gen occ02d0 = prdtocc1 /*detail*/ //DETAILED OCCUPATION RECODE - JOB 1 476 - 477
+gen occ02c0 = prmjocc1 /*coarse*/ //MAJOR OCCUPATION RECODE - JOB 1 486 - 487
+
+*** HARMONIZE IND CODE TO IND90 (FROM IPUMS-CPS)
+preserve
+	use $xdata/IPUMS_IND90_00.dta, clear
+	drop obsnum
+	drop if mi(IND2000)
+	duplicates report IND2000
+
+	gen ind02m0 = IND2000*10
+	drop IND2000
+	rename IND1990 indm0
+	
+	tempfile indx
+	save `indx', replace
+restore
+merge m:1 ind02m0 using `indx'
+tab ind02m0 if _merge==1
+
+replace indm0 = -1 if ind02m0==-1 & _merge==1
+//values specific to IND2002
+replace indm0 = 562 if ind02m0==4585 & _merge==1 //4580
+replace indm0 = 663 if ind02m0==5591 & _merge==1 //5590
+replace indm0 = 663 if ind02m0==5592 & _merge==1 //5590
+replace indm0 = 440 if ind02m0==6675 & _merge==1 //6670
+replace indm0 = 441 if ind02m0==6692 & _merge==1 //6690
+replace indm0 = 732 if ind02m0==6695 & _merge==1
+replace indm0 = 991 if ind02m0==9890 & _merge==1
+
+drop if _merge==2
+drop _merge
+
+gen indd0 = -1 if indm0==-1
+gen indc0 = -1 if indm0==-1
+qui do $code/indgp.do
+
+*** HARMONIZE OCC CODE TO OCC90 (FROM IPUMS-CPS)
+preserve
+	use $xdata/IPUMS_OCC90_00.dta, clear
+	drop obsnum
+	drop if mi(OCC2000)
+	duplicates report OCC2000
+
+	gen occ02m0 = OCC2000*10
+	drop OCC2000
+	rename OCC1990 occm0
+	
+	tempfile occx
+	save `occx', replace
+restore
+merge m:1 occ02m0 using `occx'
+tab occ02m0 if _merge==1
+
+replace occm0 = -1 if occ02m0==-1 & _merge==1
+replace occm0 = 905 if occ02m0==9840 & _merge==1
+
+drop if _merge==2
+drop _merge
+
+gen occd0 = -1 if occm0==-1
+gen occc0 = -1 if occm0==-1
+qui do $code/occgp.do
+
+*** OCC UNEMPLOYMENT RATE 
+/*unemployed people who used to serve in army and who never worked are all included*/
+gen unemp = (lf0==2) if inlist(lf0,1,2)
+
+mean unemp [pw=blswgt] if inlist(lf0,1,2)
+scalar occur_avg = _b[unemp]
+	
+preserve
+	keep if inlist(lf0,1,2)
+
+	table occc0 [pw=blswgt], c(mean unemp) format(%9.4f) row
+	tab occc0, nol
+
+	collapse (mean) occurc = unemp [pw=blswgt], by(occc0)
+	replace occurc = occur_avg if inlist(occc0,-1,14)
+
+	tempfile occurc
+	save `occurc', replace
+restore
+merge m:1 occc0 using `occurc'
+drop _merge
+
+preserve
+	keep if inlist(lf0,1,2)
+
+	table occd0 [pw=blswgt], c(mean unemp) format(%9.4f) row
+	tab occd0, nol
+
+	collapse (mean) occurd = unemp [pw=blswgt], by(occd0)
+	replace occurd = occur_avg if inlist(occd0,-1,46)
+
+	tempfile occurd
+	save `occurd', replace
+restore
+merge m:1 occd0 using `occurd'
+drop _merge
+
+
+*** STATE UNEMPLOYMENT RATE 
+gen stat0 = gestfips //(FIPS) STATE CODE 93 - 94 /*values different from kuhn data*/
+gen regn0 = gereg //REGION 89 - 90: 1 = Northeast 2 = Midwest 3 = South 4 = West
+
+*qui gen stateur = .
+*qui do $code/stateur.do
+
+
+*** SUMMARY STATISTICS 		
+#delimit ;
+global varlist "mis state hhid hhnum lineno spem-regn0 
+	age* sex* race* ptyp* lf* udur* sjob* match* badmat*";
+#delimit cr
+
+dis "$varlist"
+keep $varlist
+save $data/sup03, replace
+codebook $varlist, c
+
+keep if lf0==2
+codebook $varlist, c
+
+log close
