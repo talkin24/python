@@ -1,8 +1,8 @@
 import sys
 sys.stdin = open("행렬찾기.txt", "r")
 
-testcase = int(sys.stdin.readline())
-# testcase = int(input())
+# testcase = int(sys.stdin.readline())
+testcase = int(input())
 def matrix_check(arr, r, c):
         r_len, c_len = 0, 0
         matrix = []
@@ -23,10 +23,10 @@ def matrix_check(arr, r, c):
 
 for t in range(1,testcase+1):
     print(f'#{t}', end=' ')
-    n = int(sys.stdin.readline())
-    # n = int(input())
-    arr = [list(map(int, sys.stdin.readline().split())) for _ in range(n)]
-    # arr = [list(map(int, input().split())) for _ in range(n)]
+    # n = int(sys.stdin.readline())
+    n = int(input())
+    # arr = [list(map(int, sys.stdin.readline().split())) for _ in range(n)]
+    arr = [list(map(int, input().split())) for _ in range(n)]
 
     matrixs = []
     for r in range(len(arr)):
