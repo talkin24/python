@@ -24,4 +24,3 @@ for t in range(1, 11):
                 arr[now_r][now_c] = 3
     print(now_c - 1)
 
-
