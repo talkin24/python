@@ -25,6 +25,7 @@ def dfs(start):
 def bfs(start):
     q = []
     q.append(start)
+    result = 0
     while len(q) != 0:
         r, c = q.pop(0)
         if arr[r][c] == '3':
@@ -35,6 +36,9 @@ def bfs(start):
                 visited[r + dr][c + dc] = visited[r][c] + 1
                 new = [r + dr, c + dc]
                 q.append(new)
+                result += 1
+    print(visited[r][c])
+    print(result)
 
 
 
