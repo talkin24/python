@@ -20,14 +20,13 @@ tree = [[0] * 3 for _ in range(V + 1)]
 temp = list(map(int, input().split(',')))
 # tree 저장
 for i in range(E):
-    p, c = temp [i * 2], temp[i * 2 + 1]
+    p, c = temp[i * 2], temp[i * 2 + 1]
     if tree[p][0] == 0:
         tree[p][0] = c # left
     else:
         tree[p][1] = c # right
     tree[c][2] = p # parent
 
-print(tree)
 # for t in tree:
 #     print(*t)
 
