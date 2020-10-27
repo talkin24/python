@@ -54,9 +54,6 @@ for t in range(1, T + 1):
     N, M = map(int, input().split())
     arr = [input() for _ in range(N)]
 
-    # 전체 array 16진수로 변환
-    # if (t != 19) and (t != 20):
-    #     continue
     new_arr = []
     for row in arr:
         new_row = ''
@@ -77,8 +74,9 @@ for t in range(1, T + 1):
                 code = div_with_min(code)
                 ratios.append(convert_pw(code))
                 code = []
-            if len(ratios) == 8 and (ratios not in ratios_set):
-                ratios_set.append(ratios)
+            if len(ratios) == 8:
+                if ratios not in ratios_set:
+                    ratios_set.append(ratios)
                 ratios = []
 
             if row[i] == '1' and switch == 0: # 처음으로 1을 만나면
@@ -94,47 +92,17 @@ for t in range(1, T + 1):
                 code.append(cnt)
                 switch = 0
 
-            # if len(code) > 0 and (code not in codes):
-            #     print(code)
-            #     codes.append(code)
-
 
         if len(ratios) > 0 and (ratios not in ratios_set):
             ratios_set.append(ratios)
 
-    # print(ratios_set)
-    # for row in new_arr:
-    #
-    #     for i in range(len(row[0])):
-
-
-
-
-    #
-    # sols_set = []
-    # for code in codes:
-    #     sols = []
-    #     for i in range(0, len(code), 4):
-    #         div_code = div_with_min(code[i + 1:i + 4])
-    #         sol = convert_pw(div_code)
-    #         sols.append(sol)
-    #
-    #     if len(sols) > 8:
-    #         for i in range(0, len(sols), 8):
-    #             if sols[i:i + 8] not in sols_set:
-    #                 sols_set.append(sols[i:i + 8])
-    #     else:
-    #         if sols not in sols_set:
-    #             sols_set.append(sols)
-    print(ratios_set)
     result = 0
     for sols in ratios_set:
         if ((sols[0] + sols[2] + sols[4] + sols[6]) * 3 + (sols[1] + sols[3] + sols[5]) + sols[7]) % 10 == 0:
             result += sum(sols)
     print(result)
 
-    # if t == 5:
-    #     break
+
 
 
 
