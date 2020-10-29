@@ -26,7 +26,8 @@ def div_with_min(arr): # 최솟값으로 나누기(비율확인)
     min_value = min(arr)
     new_arr = []
     for a in arr:
-        new_arr.append(int(a / min_value))
+        if min_value != 0:
+            new_arr.append(int(a // min_value))
     return new_arr
 
 def convert_pw(arr): # 암호 변환
@@ -52,7 +53,7 @@ for t in range(1, T + 1):
     print(f'#{t}', end=' ')
 
     N, M = map(int, input().split())
-    arr = [input() for _ in range(N)]
+    arr = [input().rstrip() for _ in range(N)]
 
     new_arr = []
     for row in arr:
@@ -84,7 +85,7 @@ for t in range(1, T + 1):
                 cnt = 1                     # 숫자 세기
             elif row[i] == row[i - 1] and switch >= 1:   # switch 켜져있고, 이전 것과 값이 동일하면
                 cnt += 1                                 # cnt 증가
-            elif row[i] != row[i - 1] and 1<= switch <= 2:
+            elif row[i] != row[i - 1] and 1 <= switch <= 2:
                 code.append(cnt)
                 cnt = 1
                 switch += 1
